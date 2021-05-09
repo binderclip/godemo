@@ -1,6 +1,6 @@
 module github.com/binderclip/godemo/week2_go_errors
 
-go 1.15
+go 1.16
 
 require (
 	github.com/mattn/go-sqlite3 v1.14.7 // indirect

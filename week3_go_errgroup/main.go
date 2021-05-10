@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -17,10 +16,12 @@ func main() {
 
 	ctx := context.Background()
 	g, ctx := errgroup.WithContext(ctx)
-	serverDoneWg := sync.WaitGroup{}
 
 	hello := func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello World!")
+		_, err := fmt.Fprintf(w, "Hello World!")
+		if err != nil {
+			log.Printf("write resp failed, err: %v", err)
+		}
 	}
 	handler1 := http.NewServeMux()
 	handler1.HandleFunc("/hello", hello)
@@ -37,10 +38,8 @@ func main() {
 
 	// run server
 
-	serverDoneWg.Add(1)
 	g.Go(func() error {
 		defer func() {
-			serverDoneWg.Done()
 			log.Printf("server 1 done")
 		}()
 		err := server1.ListenAndServe()
@@ -52,10 +51,8 @@ func main() {
 		return err
 	})
 
-	serverDoneWg.Add(1)
 	g.Go(func() error {
 		defer func() {
-			serverDoneWg.Done()
 			log.Printf("server 2 done")
 		}()
 		err := server2.ListenAndServe()
@@ -73,32 +70,31 @@ func main() {
 			log.Printf("shutdown server1 err: %v", err)
 		}
 		err = server2.Shutdown(ctx)
-		// TODO: 实际执行不到下面就已经结束了，是不是增加相关 wg
 		if err != nil {
 			log.Printf("shutdown server2 err: %v", err)
 		}
 		log.Printf("shutdown all servers done")
 	}
 
-	// os.sig
-	go func() {
+	// os.sig & errgroup done
+	g.Go(func() error {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
 		// TODO: syscall.SIGUSR1, syscall.SIGUSR2 各自控制一个 server 做 test
-		s := <-c
-
-		log.Printf("got signal: %v, will shutdown servers", s)
+		select {
+		case <-ctx.Done():
+			log.Printf("errgroup meet error, will shutdown servers")
+		case s := <-c:
+			log.Printf("got signal: %v, will shutdown servers", s)
+		}
 		shutdownAllServers()
-	}()
-
-	// errgroup
-	go func() {
-		<-ctx.Done()
-		log.Printf("errgroup meet error, will shutdown servers")
-		shutdownAllServers()
-	}()
+		return nil
+	})
 
 	// wait server done
-	serverDoneWg.Wait()
+	err := g.Wait()
+	if err != nil {
+		log.Printf("errgroup err: %v", err)
+	}
 	log.Printf("main: done. existing")
 }

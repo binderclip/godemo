@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option go_package = "github.com/binderclip/godemo/week4_project_structure/api/chatbox/v1";
+
+message SendMessageRequest {
+    string name = 1;
+    string mail = 2;
+    string text = 3;
+}
+
+message SendMessageResponse {
+}

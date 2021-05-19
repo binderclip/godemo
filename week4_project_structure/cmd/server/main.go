@@ -1,17 +1,15 @@
 package main
 
 import (
-	"fmt"
+	"log"
 
-	v1 "github.com/binderclip/godemo/week4_project_structure/api/chatbox/v1"
+	"github.com/binderclip/godemo/week4_project_structure/internal/server"
 )
 
 func main() {
-	fmt.Println("hello world")
-	req := v1.SendMessageRequest{
-		Name: "Tony",
-		Mail: "tony@mybarbershop.com",
-		Text: "Hi!",
+	srv := server.NewServer()
+	err := srv.Run()
+	if err != nil {
+		log.Fatalf("run server error: %v", err)
 	}
-	fmt.Printf("req: %v\n", req)
 }
